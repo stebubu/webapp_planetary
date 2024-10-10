@@ -282,11 +282,14 @@ def main():
         
         location = (lon_min, lat_min, lon_max, lat_max)  # Example bounding box (min_lon, min_lat, max_lon, max_lat) 
         fetch_and_map_sentinel2(location, select_start_date, select_end_date)
+        st.error("CIAO")
+        
 
     if st.button('Map LANDSAT'):
         
         location = (lon_min, lat_min, lon_max, lat_max)  # Example bounding box (min_lon, min_lat, max_lon, max_lat) 
         fetch_and_map_landsat(location, select_start_date, select_end_date)
+        st.error("CIAO")
 
 
 
