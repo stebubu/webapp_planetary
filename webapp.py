@@ -291,7 +291,7 @@ def main():
         fetch_and_map_landsat(location, select_start_date, select_end_date)
         st.error("CIAO")
 
-
+  
 
 
         # Convert to GeoDataFrame (if necessary)
