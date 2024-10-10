@@ -142,6 +142,56 @@ def fetch_and_map_sentinel2(location, start_date, end_date):
     # Display using Streamlit
     st.pyplot(fig)
 
+def fetch_and_map_landsat(location, start_date, end_date):
+    
+    catalog = pystac_client.Client.open("https://planetarycomputer.microsoft.com/api/stac/v1/")
+    
+    # Perform the search for Sentinel-2 data
+    search = catalog.search(
+        collections=["landsat-c2-l2"],
+        bbox=location,
+        datetime=f"{start_date}/{end_date}",
+        limit=1,
+        query={"eo:cloud_cover": {"lt": 10}}  # Optional: Filter by cloud cover
+    )
+
+
+    
+    # Get the first matching item
+    items = list(search.get_items())
+    if not items:
+        st.error("No LANDSAT data found for the specified parameters.")
+        return
+    
+    item = items[0]
+    signed_item = planetary_computer.sign(item)  # Sign the item to access the data
+
+    # Load the image
+    data_asset = signed_item.assets["visual"]
+    visual_data = rioxarray.open_rasterio(data_asset.href)
+    
+    # Plotting the image
+    fig, ax = plt.subplots(figsize=(10, 10), subplot_kw={'projection': ccrs.PlateCarree()})
+    
+    # Select the first band for visualization (RGB combination)
+    img_extent = [location[0], location[2], location[1], location[3]]
+    ax.imshow(visual_data[0].data, extent=img_extent, transform=ccrs.PlateCarree(), origin='upper')
+    
+    # Add state boundaries and coastlines
+    ax.add_feature(cfeature.STATES, edgecolor='black')
+    ax.coastlines()
+
+    # Set labels and title
+    ax.set_title(f"LANDSAT Image for Bounding Box: {location}\nDate: {signed_item.datetime.isoformat()}", fontsize=12)
+    ax.set_xlabel("Longitude")
+    ax.set_ylabel("Latitude")
+    
+    # Display using Streamlit
+    st.pyplot(fig)
+
+
+
+
 def main():
     # Streamlit interface for inputs
     st.title("ERA5  Data Download")
@@ -233,6 +283,10 @@ def main():
         location = (lon_min, lat_min, lon_max, lat_max)  # Example bounding box (min_lon, min_lat, max_lon, max_lat) 
         fetch_and_map_sentinel2(location, select_start_date, select_end_date)
 
+    if st.button('Map LANDSAT'):
+        
+        location = (lon_min, lat_min, lon_max, lat_max)  # Example bounding box (min_lon, min_lat, max_lon, max_lat) 
+        fetch_and_map_landsat(location, select_start_date, select_end_date)
 
 
         # Convert to GeoDataFrame (if necessary)
