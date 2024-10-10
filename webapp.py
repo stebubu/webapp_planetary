@@ -151,7 +151,6 @@ def fetch_and_map_landsat(location, start_date, end_date):
         collections=["landsat-c2-l2"],
         bbox=location,
         datetime=f"{start_date}/{end_date}",
-        limit=1,
         query={"eo:cloud_cover": {"lt": 10}}  # Optional: Filter by cloud cover
     )
 
