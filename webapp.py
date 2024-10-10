@@ -289,6 +289,8 @@ def main():
         fetch_and_map_landsat(location, select_start_date, select_end_date)
 
 
+
+
         # Convert to GeoDataFrame (if necessary)
         # Plot with Mapbox overlay
         # Mapbox access token
