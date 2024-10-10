@@ -35,6 +35,7 @@ def calculate_djf_sum(data_array):
     return djf_sum
 
 
+
 def round_coordinates(coord, interval=0.25):
     """Rounds the coordinates to the nearest grid point."""
     return [round(c / interval) * interval for c in coord]
@@ -77,13 +78,73 @@ def fetch_rain_bbox(varname, factor, location, start_date, end_date):
     else:
         return None
 
+def convert_to_netcdf(data_era5):
+    # Create a temporary directory to save the file
+    if not os.path.exists('tmp'):
+        os.makedirs('tmp')
+    filepath = os.path.join('tmp', 'era5_data.nc')
+    data_era5.to_netcdf(path=filepath)
+    return filepath
+from datetime import datetime
+
+def fetch_and_map_sentinel2(location, start_date, end_date):
+    """
+    Fetches the most recent Sentinel-2 image from Planetary Computer for a specified bounding box
+    and date range, and maps it with state boundaries.
+    
+    Parameters:
+    - location: tuple of (min_lon, min_lat, max_lon, max_lat)
+    - start_date: start date for the search
+    - end_date: end date for the search
+    """
+    catalog = pystac_client.Client.open("https://planetarycomputer.microsoft.com/api/stac/v1/")
+    
+    # Perform the search for Sentinel-2 data
+    search = catalog.search(
+        collections=["sentinel-2-l2a"],
+        bbox=location,
+        datetime=f"{start_date}/{end_date}",
+        limit=1,
+        query={"eo:cloud_cover": {"lt": 10}}  # Optional: Filter by cloud cover
+    )
 
 
+    
+    # Get the first matching item
+    items = list(search.get_items())
+    if not items:
+        st.error("No Sentinel-2 data found for the specified parameters.")
+        return
+    
+    item = items[0]
+    signed_item = planetary_computer.sign(item)  # Sign the item to access the data
 
+    # Load the image
+    data_asset = signed_item.assets["visual"]
+    visual_data = rioxarray.open_rasterio(data_asset.href)
+    
+    # Plotting the image
+    fig, ax = plt.subplots(figsize=(10, 10), subplot_kw={'projection': ccrs.PlateCarree()})
+    
+    # Select the first band for visualization (RGB combination)
+    img_extent = [location[0], location[2], location[1], location[3]]
+    ax.imshow(visual_data[0].data, extent=img_extent, transform=ccrs.PlateCarree(), origin='upper')
+    
+    # Add state boundaries and coastlines
+    ax.add_feature(cfeature.STATES, edgecolor='black')
+    ax.coastlines()
+
+    # Set labels and title
+    ax.set_title(f"Sentinel-2 Image for Bounding Box: {location}\nDate: {signed_item.datetime.isoformat()}", fontsize=12)
+    ax.set_xlabel("Longitude")
+    ax.set_ylabel("Latitude")
+    
+    # Display using Streamlit
+    st.pyplot(fig)
 
 def main():
     # Streamlit interface for inputs
-    st.title("ERA5 Planetary Data Download")
+    st.title("ERA5  Data Download")
     start_date = st.date_input("Start date", value=datetime(1995, 1, 1))
     end_date = st.date_input("End date", value=datetime(1995, 12, 31))
     
@@ -111,7 +172,7 @@ def main():
     index=0,  # Default selection to the first variable
     help="Choose the variable you wish to analyze from ERA5 data.")
     st.write(f"Selected variable: {var_ERA5}")
-
+    
     #st.write('You selected:', var_ERA5)
     if var_ERA5=='precipitation_amount_1hour_Accumulation':
         factor_sel=1000
@@ -139,7 +200,56 @@ def main():
         
         fig.update_traces(hoverinfo='x+y+z', showscale=True)
         st.plotly_chart(fig, use_container_width=True)  
+
+
+        # Create a figure
+        fig, ax = plt.subplots(figsize=(10, 5), subplot_kw={'projection': ccrs.PlateCarree()})
+        lon = np.linspace(lon_min, lon_max, lower_tercile.shape[1])  # Replace with actual longitude data
+        lat = np.linspace(lat_min, lat_max, lower_tercile.shape[0])     # Replace with actual latitude data
+
+        # Plot data
+        c = ax.pcolormesh(lon, lat, lower_tercile, transform=ccrs.PlateCarree(), cmap='viridis')
+
+        # Add state boundaries
+        ax.add_feature(cfeature.STATES, edgecolor='black')
+
+        # Add coastlines
+        ax.coastlines()
+
+        # Add color bar
+        plt.colorbar(c, ax=ax, orientation='vertical', label='lower_tercile')
+
+        # Set labels
+        ax.set_xlabel("Longitude")
+        ax.set_ylabel("Latitude")
+
+        # Display using Streamlit
+        st.pyplot(fig)
+
+    select_start_date = st.date_input("Select date", value=datetime(2024, 9, 20))
+    select_end_date = st.date_input("Select date", value=datetime(2024, 9, 22))
+    if st.button('Map Sentinel 2'):
+        
+        location = (lon_min, lat_min, lon_max, lat_max)  # Example bounding box (min_lon, min_lat, max_lon, max_lat) 
+        fetch_and_map_sentinel2(location, select_start_date, select_end_date)
+
+
+
+        # Convert to GeoDataFrame (if necessary)
+        # Plot with Mapbox overlay
+        # Mapbox access token
+        
+        
+      
+        
+       
+        
+        
+
+
+
     
+ 
 
 if __name__ == "__main__":
     main()
